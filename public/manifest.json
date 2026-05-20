@@ -1,0 +1,14 @@
+{
+  "name": "Money Quest - RPG Financiero",
+  "short_name": "Money Quest",
+  "description": "RPG financiero de pareja. Ahorra, compite y conquista con Rafa y Laura.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f0c29",
+  "theme_color": "#ffd700",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}

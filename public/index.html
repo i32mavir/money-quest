@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#ffd700">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Money Quest">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <title>🎮 Money Quest — Rafa & Laura</title>
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    *{margin:0;padding:0;box-sizing:border-box}
+    body{
+      font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+      background:linear-gradient(135deg,#0f0c29,#302b63,#24243e);
+      min-height:100vh;color:#e0e0e0;
+    }
+    .container{max-width:960px;margin:0 auto;padding:15px}
+
+    /* PANTALLA INICIO */
+    #pantalla-inicio{
+      display:flex;flex-direction:column;align-items:center;justify-content:center;
+      min-height:100vh;text-align:center;
+    }
+    .logo{
+      font-size:3.5rem;background:linear-gradient(135deg,#ffd700,#ffaa00);
+      -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+      margin-bottom:5px;animation:pulse 2s infinite;
+    }
+    @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.05)}}
+    .subtitulo{color:#aaa;margin-bottom:10px;font-size:1rem}
+    .players-badge{
+      display:inline-flex;gap:8px;align-items:center;
+      background:rgba(255,215,0,0.1);padding:8px 20px;border-radius:30px;
+      margin-bottom:30px;font-size:1.1rem;
+    }
+
+    .card{
+      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+      border-radius:16px;padding:25px;margin:12px 0;width:100%;max-width:460px;
+      backdrop-filter:blur(10px);transition:all 0.3s;
+    }
+    .card h3{margin-bottom:12px;color:#ffd700;font-size:1.2rem}
+    input,select{
+      width:100%;padding:12px 16px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);
+      background:rgba(255,255,255,0.08);color:#fff;font-size:1rem;margin-bottom:10px;
+    }
+    input:focus,select:focus{outline:none;border-color:#ffd700}
+    select option{background:#1a1a2e;color:#fff}
+
+    .btn{
+      display:inline-block;padding:12px 28px;border-radius:12px;border:none;
+      font-size:1rem;font-weight:700;cursor:pointer;transition:all 0.2s;
+      text-transform:uppercase;letter-spacing:1px;
+    }
+    .btn:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(0,0,0,0.3)}
+    .btn:disabled{opacity:0.4;cursor:not-allowed;transform:none}
+    .btn-oro{background:linear-gradient(135deg,#ffd700,#ffaa00);color:#1a1a2e}
+    .btn-purpura{background:linear-gradient(135deg,#7c3aed,#5b21b6);color:#fff}
+    .btn-rojo{background:linear-gradient(135deg,#ef4444,#b91c1c);color:#fff}
+    .btn-verde{background:linear-gradient(135deg,#22c55e,#15803d);color:#fff}
+    .btn-azul{background:linear-gradient(135deg,#3b82f6,#1d4ed8);color:#fff}
+    .btn-sm{padding:8px 16px;font-size:0.85rem}
+    .btn-block{width:100%}
+
+    .avatar-picker{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}
+    .avatar-option{
+      width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+      font-size:1.5rem;cursor:pointer;border:2px solid transparent;background:rgba(255,255,255,0.05);
+      transition:all 0.2s;
+    }
+    .avatar-option:hover{background:rgba(255,215,0,0.15);transform:scale(1.1)}
+    .avatar-option.selected{border-color:#ffd700;background:rgba(255,215,0,0.2);box-shadow:0 0 15px rgba(255,215,0,0.3)}
+
+    /* JUEGO */
+    #pantalla-juego{display:none}
+    .header{
+      display:flex;justify-content:space-between;align-items:center;
+      padding:12px 18px;background:rgba(0,0,0,0.3);border-radius:16px;
+      margin-bottom:15px;flex-wrap:wrap;gap:8px;
+    }
+    .header h2{color:#ffd700;font-size:1.3rem}
+    .codigo-sesion{
+      background:rgba(255,215,0,0.15);padding:6px 14px;border-radius:20px;
+      color:#ffd700;font-weight:bold;font-family:monospace;font-size:1rem;
+    }
+
+    /* JUGADORES */
+    .jugadores{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:15px}
+    @media(max-width:650px){.jugadores{grid-template-columns:1fr}}
+    .jugador-card{
+      background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1);
+      border-radius:16px;padding:18px;transition:all 0.3s;position:relative;
+    }
+    .jugador-card.activo{border-color:#ffd700;box-shadow:0 0 20px rgba(255,215,0,0.12)}
+    .jugador-card.esperando{opacity:0.45}
+    .jugador-avatar{font-size:2.2rem;margin-bottom:5px}
+    .jugador-card h3{font-size:1.1rem;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+    .nivel-badge{
+      display:inline-block;padding:3px 10px;border-radius:20px;
+      font-size:0.8rem;font-weight:bold;background:rgba(255,215,0,0.2);color:#ffd700;
+    }
+    .stat{display:flex;justify-content:space-between;margin:5px 0;font-size:0.85rem}
+    .stat-label{color:#aaa}.stat-valor{font-weight:bold;color:#ffd700}
+    .exp-bar-container{
+      background:rgba(255,255,255,0.1);border-radius:10px;height:12px;margin:8px 0;overflow:hidden;
+    }
+    .exp-bar-fill{
+      height:100%;border-radius:10px;background:linear-gradient(90deg,#ffd700,#ff8c00);
+      transition:width 0.5s ease;
+    }
+    .exp-text{font-size:0.72rem;color:#aaa;text-align:center}
+
+    /* PESTAÑAS */
+    .tabs{display:flex;gap:4px;margin-bottom:12px;flex-wrap:wrap}
+    .tab{
+      padding:10px 18px;border-radius:10px 10px 0 0;cursor:pointer;
+      background:rgba(255,255,255,0.05);border:1px solid transparent;
+      font-weight:600;font-size:0.9rem;transition:all 0.2s;
+    }
+    .tab:hover{background:rgba(255,255,255,0.1)}
+    .tab.active{background:rgba(255,215,0,0.15);border-color:#ffd700;color:#ffd700}
+    .tab-content{display:none}
+    .tab-content.active{display:block}
+
+    /* RETOS */
+    .retos-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px}
+    .reto-card{
+      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+      border-radius:12px;padding:14px;transition:all 0.2s;
+    }
+    .reto-card:hover{border-color:#ffd700;transform:translateY(-2px)}
+    .reto-card.completado{opacity:0.45;pointer-events:none}
+    .reto-card h4{font-size:0.95rem;margin-bottom:4px}
+    .reto-card p{font-size:0.8rem;color:#aaa;margin-bottom:6px}
+    .reto-reward{display:flex;gap:10px;font-size:0.82rem;font-weight:bold;margin-bottom:8px}
+    .exp-reward{color:#ffd700}.coin-reward{color:#ffaa00}
+    .dificultad{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.7rem;margin-bottom:6px}
+    .diff-1{background:rgba(34,197,94,0.2);color:#22c55e}
+    .diff-2{background:rgba(251,191,36,0.2);color:#fbbf24}
+    .diff-3{background:rgba(239,68,68,0.2);color:#ef4444}
+
+    /* TIENDA */
+    .tienda-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+    .item-card{
+      background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.1);
+      border-radius:12px;padding:14px;
+    }
+    .item-card h4{font-size:0.95rem;margin-bottom:4px}
+    .item-card p{font-size:0.82rem;color:#aaa;margin-bottom:6px}
+    .item-cost{color:#ffaa00;font-weight:bold;font-size:0.9rem}
+    .item-type{display:inline-block;padding:2px 8px;border-radius:10px;font-size:0.7rem;margin-bottom:6px}
+    .type-sabotaje{background:rgba(239,68,68,0.2);color:#ef4444}
+    .type-potenciador{background:rgba(59,130,246,0.2);color:#3b82f6}
+    .type-cooperativo{background:rgba(34,197,94,0.2);color:#22c55e}
+    .type-defensa{background:rgba(168,85,247,0.2);color:#a855f7}
+
+    /* INVENTARIO */
+    .inventario-item{
+      display:flex;justify-content:space-between;align-items:center;
+      background:rgba(255,255,255,0.05);border-radius:10px;padding:10px 14px;margin-bottom:6px;
+    }
+
+    /* RANKING */
+    .ranking-table{width:100%;border-collapse:collapse;margin-top:10px}
+    .ranking-table th{
+      text-align:left;padding:10px;border-bottom:1px solid rgba(255,255,255,0.1);
+      color:#ffd700;font-size:0.85rem
+    }
+    .ranking-table td{
+      padding:10px;border-bottom:1px solid rgba(255,255,255,0.05);font-size:0.85rem
+    }
+    .ranking-table tr:hover{background:rgba(255,255,255,0.03)}
+    .winner-row{background:rgba(255,215,0,0.08)!important}
+    .rafa-color{color:#f59e0b}.laura-color{color:#ec4899}
+
+    /* LOG */
+    .log-container{
+      max-height:250px;overflow-y:auto;background:rgba(0,0,0,0.3);
+      border-radius:12px;padding:12px;
+    }
+    .log-entry{padding:5px 0;border-bottom:1px solid rgba(255,255,255,0.04);font-size:0.82rem}
+    .log-entry .time{color:#555;font-size:0.72rem}
+    .log-entry .player-name{color:#ffd700}
+    .log-entry .reward-text{color:#22c55e}
+
+    /* TOAST */
+    .toast{
+      position:fixed;top:20px;right:20px;padding:14px 20px;
+      border-radius:12px;color:#fff;font-weight:bold;
+      animation:slideIn 0.3s ease;z-index:1000;max-width:350px;font-size:0.9rem;
+    }
+    .toast.success{background:linear-gradient(135deg,#22c55e,#15803d)}
+    .toast.error{background:linear-gradient(135deg,#ef4444,#b91c1c)}
+    .toast.info{background:linear-gradient(135deg,#3b82f6,#1d4ed8)}
+    .toast.warning{background:linear-gradient(135deg,#f59e0b,#b45309)}
+    .toast.levelup{
+      background:linear-gradient(135deg,#ffd700,#ff8c00);color:#1a1a2e;
+      font-size:1.1rem;animation:levelUpAnim 0.5s ease;
+    }
+    @keyframes slideIn{from{transform:translateX(100%);opacity:0}to{transform:translateX(0);opacity:1}}
+    @keyframes levelUpAnim{0%{transform:scale(0.5)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
+
+    /* MODAL */
+    .modal-overlay{
+      display:none;position:fixed;top:0;left:0;width:100%;height:100%;
+      background:rgba(0,0,0,0.75);z-index:999;justify-content:center;align-items:center;
+    }
+    .modal-overlay.show{display:flex}
+    .modal{
+      background:#1a1a2e;border:1px solid rgba(255,255,255,0.1);
+      border-radius:20px;padding:30px;max-width:480px;width:90%;text-align:center;
+    }
+    .modal h2{color:#ffd700;margin-bottom:12px;font-size:1.5rem}
+    .modal p{margin-bottom:12px;color:#ccc;font-size:0.95rem}
+    .ganador-corona{font-size:5rem;animation:bounce 1s infinite}
+    @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-18px)}}
+
+    ::-webkit-scrollbar{width:5px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:3px}
+
+    .empty-state{text-align:center;padding:30px;color:#555}
+    .instalar-app{
+      display:none;background:rgba(255,215,0,0.12);padding:10px 16px;
+      border-radius:12px;margin-bottom:15px;text-align:center;cursor:pointer;
+      border:1px dashed rgba(255,215,0,0.3);
+    }
+    .instalar-app:hover{background:rgba(255,215,0,0.2)}
+
+    .rafa-highlight{border-left:3px solid #f59e0b}
+    .laura-highlight{border-left:3px solid #ec4899}
+
+    .stats-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px}
+    .stat-card{
+      background:rgba(255,255,255,0.05);border-radius:12px;padding:14px;text-align:center;
+    }
+    .stat-card.rafa-card{border-bottom:3px solid #f59e0b}
+    .stat-card.laura-card{border-bottom:3px solid #ec4899}
+    .stat-card .big-num{font-size:1.8rem;font-weight:bold;margin:5px 0}
+  </style>
+</head>
+<body>
+
+<!-- PWA INSTALAR -->
+<div class="instalar-app" id="btn-instalar" onclick="instalarPWA()">
+  📱 ¡Instala Money Quest como app! (Toca aquí)
+</div>
+
+<!-- ===== INICIO ===== -->
+<div id="pantalla-inicio">
+  <div class="container" style="text-align:center">
+    <div class="logo">🎮 Money Quest</div>
+    <p class="subtitulo">RPG Financiero de Pareja</p>
+    <div class="players-badge">🦁 Rafa &nbsp;⚡VS⚡&nbsp; Laura 🦊</div>
+
+    <div class="card">
+      <h3>🆕 Crear Nueva Partida</h3>
+      <input type="text" id="nombre-crear" placeholder="Tu nombre (Rafa o Laura)" maxlength="20" value="Rafa">
+      <p style="font-size:0.8rem;color:#aaa;margin-bottom:8px">Elige tu avatar:</p>
+      <div class="avatar-picker" id="avatar-crear"></div>
+      <button class="btn btn-oro btn-block" onclick="crearSesion()">⚔️ Crear Aventura</button>
+    </div>
+
+    <div class="card">
+      <h3>🔗 Unirse a Partida</h3>
+      <input type="text" id="codigo-unir" placeholder="Código de sesión (ej: DRAGON123)" maxlength="15" style="text-transform:uppercase">
+      <input type="text" id="nombre-unir" placeholder="Tu nombre (Rafa o Laura)" maxlength="20" value="Laura">
+      <p style="font-size:0.8rem;color:#aaa;margin-bottom:8px">Elige tu avatar:</p>
+      <div class="avatar-picker" id="avatar-unir"></div>
+      <button class="btn btn-purpura btn-block" onclick="unirSesion()">✨ Unirse</button>
+    </div>
+
+    <p class="subtitulo" style="margin-top:15px">📱 PWA · ☁️ Cloud · ⚡ Real-time · 🔔 Notificaciones</p>
+  </div>
+</div>
+
+<!-- ===== JUEGO ===== -->
+<div id="pantalla-juego">
+  <div class="container">
+    <div class="header">
+      <h2>🎮 Money Quest</h2>
+      <span class="codigo-sesion" id="codigo-display">---</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span id="estado-conexion" style="font-size:0.8rem">🟢 En línea</span>
+        <button class="btn btn-rojo btn-sm" onclick="salirJuego()">🚪 Salir</button>
+      </div>
+    </div>
+
+    <!-- JUGADORES -->
+    <div class="jugadores" id="jugadores-container"></div>
+
+    <!-- PESTAÑAS -->
+    <div class="tabs">
+      <div class="tab active" onclick="cambiarTab('retos')">⚔️ Retos</div>
+      <div class="tab" onclick="cambiarTab('tienda')">🛒 Tienda</div>
+      <div class="tab" onclick="cambiarTab('inventario')">🎒 Inventario</div>
+      <div class="tab" onclick="cambiarTab('ranking')">🏆 Ranking</div>
+      <div class="tab" onclick="cambiarTab('log')">📜 Historial</div>
+    </div>
+
+    <!-- RETOS -->
+    <div class="tab-content active" id="tab-retos">
+      <div class="retos-grid" id="retos-lista"></div>
+    </div>
+
+    <!-- TIENDA -->
+    <div class="tab-content" id="tab-tienda">
+      <p style="margin-bottom:10px;color:#aaa">💰 Tus monedas: <strong style="color:#ffd700" id="mis-monedas-tienda">0</strong></p>
+      <div class="tienda-grid" id="tienda-lista"></div>
+    </div>
+
+    <!-- INVENTARIO -->
+    <div class="tab-content" id="tab-inventario">
+      <h3 style="margin-bottom:10px">🎒 Tus Objetos</h3>
+      <div id="inventario-lista"><p class="empty-state">🎒 Vacío — ¡Compra objetos en la tienda!</p></div>
+    </div>
+
+    <!-- RANKING -->
+    <div class="tab-content" id="tab-ranking">
+      <h3 style="margin-bottom:8px">🏆 Rey del Dinero — Historial</h3>
+      <div id="ranking-stats"></div>
+      <table class="ranking-table">
+        <thead><tr><th>Mes</th><th>👑 Ganador</th><th>🦁 Rafa</th><th>🦊 Laura</th></tr></thead>
+        <tbody id="ranking-body"></tbody>
+      </table>
+      <p id="ranking-empty" class="empty-state" style="display:none">🏆 Aún no hay meses registrados. ¡Jugad para crear historia!</p>
+    </div>
+
+    <!-- LOG -->
+    <div class="tab-content" id="tab-log">
+      <h3 style="margin-bottom:10px">📜 Historial de la Partida</h3>
+      <div class="log-container" id="log-lista"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL GANADOR -->
+<div class="modal-overlay" id="modal-ganador">
+  <div class="modal">
+    <div class="ganador-corona">👑</div>
+    <h2 id="modal-ganador-texto">¡Felicidades!</h2>
+    <p id="modal-ganador-detalle"></p>
+    <p>Tienes el <strong>Poder Supremo</strong> este mes 🎉</p>
+    <p style="color:#aaa;font-size:0.85rem">Elige: plan, cita, capricho o decisión acordada</p>
+    <div id="modal-ranking-preview" style="margin:15px 0"></div>
+    <button class="btn btn-oro" onclick="cerrarModal()">¡A por el siguiente mes!</button>
+  </div>
+</div>
+
+<div id="toast-container"></div>
+
+<script>
+// ============================================================
+// 🎮 MONEY QUEST v2 — Cliente PWA (Rafa & Laura Edition)
+// ============================================================
+
+let socket, miPlayerNum, miPlayerId, sessionCode, estadoJuego;
+let avatarSeleccionado = { crear: '🦁', unir: '🦊' };
+let deferredPrompt = null;
+
+const AVATARS = ['🦁','🐯','🐺','🦊','🐉','🦅','🦄','🐲','🦚','🐈','👑','⚔️','🛡️','🔥','💎','🌟','🌈','🍀'];
+const TITLES = {1:'🥉 Aprendiz del Ahorro',2:'🥈 Guerrero del Presupuesto',3:'🥇 Caballero de la Inversión',4:'💎 Maestro Financiero',5:'👑 Leyenda del Dinero'};
+const DIFF = {1:'Fácil ⭐',2:'Medio ⭐⭐',3:'Difícil ⭐⭐⭐'};
+const TYPE = {sabotaje:'🔥 Sabotaje',potenciador:'⚡ Potenciador',cooperativo:'💝 Cooperativo',defensa:'🔰 Defensa'};
+
+// ===== PWA =====
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('/sw.js').then(() => console.log('📱 SW registrado'));
+}
+
+window.addEventListener('beforeinstallprompt', (e) => {
+  e.preventDefault();
+  deferredPrompt = e;
+  document.getElementById('btn-instalar').style.display = 'block';
+});
+
+function instalarPWA() {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(() => {
+      document.getElementById('btn-instalar').style.display = 'none';
+    });
+  }
+}
+
+// Notificaciones
+function pedirNotificaciones() {
+  if ('Notification' in window && Notification.permission === 'default') {
+    Notification.requestPermission();
+  }
+}
+
+function notificar(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted') {
+    new Notification(title, { body, icon: '/icon-192.png', badge: '/icon-192.png', tag: 'money-quest' });
+  }
+}
+
+// ===== AVATAR PICKER =====
+function crearAvatarPicker(containerId, key) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  container.innerHTML = AVATARS.map(a => 
+    `<div class="avatar-option${avatarSeleccionado[key] === a ? ' selected' : ''}" 
+          onclick="seleccionarAvatar('${key}','${a}')">${a}</div>`
+  ).join('');
+}
+crearAvatarPicker('avatar-crear', 'crear');
+crearAvatarPicker('avatar-unir', 'unir');
+
+function seleccionarAvatar(key, avatar) {
+  avatarSeleccionado[key] = avatar;
+  document.querySelectorAll(`#avatar-${key} .avatar-option`).forEach(el => {
+    el.classList.toggle('selected', el.textContent === avatar);
+  });
+  crearAvatarPicker(`avatar-${key}`, key);
+}
+
+// ===== CONEXIÓN =====
+function conectarSocket() {
+  socket = io();
+  pedirNotificaciones();
+
+  socket.on('rival_conectado', (data) => {
+    estadoJuego = data;
+    renderizarTodo();
+    mostrarToast('🎉 ¡Tu rival se ha conectado!', 'success');
+    notificar('🎉 Money Quest', '¡Tu compañero/a se ha conectado!');
+  });
+
+  socket.on('juego_actualizado', (data) => {
+    estadoJuego = data;
+    renderizarTodo();
+    const a = data.lastAction;
+    if (!a) return;
+    if (a.leveledUp) {
+      mostrarToast(`⬆️ ¡${a.playerName} subió a Nivel ${a.newLevel}: ${a.newTitle}!`, 'levelup');
+    } else if (a.actionType === 'compra') {
+      mostrarToast(`🛒 ${a.playerName} compró ${a.itemName}`, 'info');
+    } else if (a.actionType === 'uso_objeto') {
+      mostrarToast(a.logMessage || 'Objeto usado', 'warning');
+    } else if (a.challengeName) {
+      const multi = a.expMultiplier ? ' ⚡x2!' : '';
+      mostrarToast(`${a.playerName}: ${a.challengeName} → +${a.expGanada} EXP, +${a.coinsGanadas}💰${multi}`, 'success');
+    }
+  });
+
+  socket.on('notificacion_rival', (data) => {
+    notificar(data.title, data.body);
+    mostrarToast(`🔔 ${data.title}`, 'info');
+  });
+
+  socket.on('mes_reiniciado', (data) => {
+    estadoJuego = { session: data.session, rankings: data.rankings };
+    renderizarTodo();
+    mostrarModalGanador(data.ganadorAnterior, data.ganadorAvatar);
+  });
+
+  socket.on('jugador_desconectado', () => {
+    mostrarToast('⚠️ Tu rival se ha desconectado', 'warning');
+    document.getElementById('estado-conexion').innerHTML = '🟡 Esperando...';
+  });
+}
+
+function crearSesion() {
+  const nombre = document.getElementById('nombre-crear').value.trim();
+  if (!nombre || nombre.length < 2) return mostrarToast('⚠️ Escribe tu nombre', 'error');
+  conectarSocket();
+  socket.emit('crear_sesion', { playerName: nombre, avatar: avatarSeleccionado.crear }, (resp) => {
+    if (resp.error) return mostrarToast(resp.error, 'error');
+    sessionCode = resp.sessionCode; miPlayerNum = 1; miPlayerId = resp.player.id;
+    iniciarJuego(resp);
+  });
+}
+
+function unirSesion() {
+  const codigo = document.getElementById('codigo-unir').value.trim().toUpperCase();
+  const nombre = document.getElementById('nombre-unir').value.trim();
+  if (!codigo) return mostrarToast('⚠️ Escribe el código', 'error');
+  if (!nombre || nombre.length < 2) return mostrarToast('⚠️ Escribe tu nombre', 'error');
+  conectarSocket();
+  socket.emit('unir_sesion', { sessionCode: codigo, playerName: nombre, avatar: avatarSeleccionado.unir }, (resp) => {
+    if (resp.error) return mostrarToast(resp.error, 'error');
+    sessionCode = codigo; miPlayerNum = resp.playerNum; miPlayerId = resp.player.id;
+    iniciarJuego(resp);
+  });
+}
+
+function iniciarJuego(resp) {
+  document.getElementById('pantalla-inicio').style.display = 'none';
+  document.getElementById('pantalla-juego').style.display = 'block';
+  document.getElementById('codigo-display').textContent = '🔑 ' + sessionCode;
+  document.getElementById('btn-instalar').style.display = 'none';
+  
+  estadoJuego = resp.session ? { session: resp.session, gameLog: resp.session.gameLog || [] } : null;
+  
+  socket.emit('obtener_estado', {}, (data) => {
+    estadoJuego = data;
+    renderizarTodo();
+  });
+  mostrarToast('✅ ¡Conectado!', 'success');
+  
+  // Cargar rankings
+  fetch('/api/rafaylaura').then(r => r.json()).then(stats => {
+    window.allTimeStats = stats;
+    if (document.getElementById('tab-ranking').classList.contains('active')) renderizarRanking();
+  });
+}
+
+function salirJuego() {
+  if (confirm('¿Salir de la partida?')) { socket.disconnect(); location.reload(); }
+}
+
+// ============================================================
+// RENDERIZAR
+// ============================================================
+
+function renderizarTodo() {
+  if (!estadoJuego) return;
+  const s = estadoJuego.session || estadoJuego;
+  renderizarJugadores(s);
+  renderizarRetos(s);
+  renderizarTienda(s);
+  renderizarInventario(s);
+  renderizarLog(s);
+  renderizarRanking();
+}
+
+function miJugador(s) { return miPlayerNum === 1 ? s.player1 : s.player2; }
+function rivalJugador(s) { return miPlayerNum === 1 ? s.player2 : s.player1; }
+
+function retosHoy(p) {
+  const today = new Date().toISOString().slice(0,10);
+  return (p?.completedChallenges || []).filter(c => c.date === today).length;
+}
+
+function calcProgress(exp, level) {
+  if (level >= 5) return 100;
+  const floor = [0,100,250,450,700][level-1] || 0;
+  const ceil = [100,250,450,700,999][level-1] || 100;
+  return Math.min(100, Math.floor(((exp - floor) / (ceil - floor)) * 100));
+}
+
+function renderizarJugadores(s) {
+  const c = document.getElementById('jugadores-container');
+  function card(p, esMio, num) {
+    if (!p) return `<div class="jugador-card esperando"><h3>⏳ Jugador ${num}</h3><p style="color:#555">Esperando...</p></div>`;
+    const progress = calcProgress(p.exp||0, p.level||1);
+    const playerClass = p.name === 'Rafa' ? 'rafa-highlight' : p.name === 'Laura' ? 'laura-highlight' : '';
+    const level = p.level || 1;
+    return `<div class="jugador-card ${esMio?'activo':''} ${playerClass}">
+      <h3><span class="jugador-avatar">${p.avatar||'👤'}</span> ${p.name} ${esMio?'(Tú)':''}</h3>
+      <span class="nivel-badge">Nivel ${level} — ${TITLES[level]}</span>
+      <div class="exp-bar-container"><div class="exp-bar-fill" style="width:${progress}%"></div></div>
+      <div class="exp-text">${p.exp||0} EXP</div>
+      <div class="stat"><span class="stat-label">💰 Monedas</span><span class="stat-valor">${p.coins||0}</span></div>
+      <div class="stat"><span class="stat-label">🎒 Objetos</span><span class="stat-valor">${(p.inventory||[]).length}</span></div>
+      <div class="stat"><span class="stat-label">✅ Retos hoy</span><span class="stat-valor">${retosHoy(p)}</span></div>
+    </div>`;
+  }
+  c.innerHTML = card(s.player1, miPlayerNum===1, 1) + card(s.player2, miPlayerNum===2, 2);
+}
+
+function renderizarRetos(s) {
+  const challenges = estadoJuego.challenges || [];
+  const yo = miJugador(s);
+  const hoy = new Date().toISOString().slice(0,10);
+  document.getElementById('retos-lista').innerHTML = challenges.map(c => {
+    const ok = (yo?.completedChallenges||[]).find(r => r.id === c.id && r.date === hoy);
+    return `<div class="reto-card ${ok?'completado':''}">
+      <span class="dificultad diff-${c.difficulty}">${DIFF[c.difficulty]}</span>
+      <h4>${c.name}</h4><p>${c.desc}</p>
+      <div class="reto-reward"><span class="exp-reward">⭐ +${c.exp} EXP</span><span class="coin-reward">💰 +${c.coins}</span></div>
+      ${ok ? '<span style="color:#22c55e;font-weight:bold">✅ ¡Hecho!</span>'
+        : `<button class="btn btn-oro btn-sm btn-block" onclick="completarReto('${c.id}')">✅ Completar</button>`}
+    </div>`;
+  }).join('');
+}
+
+function completarReto(id) {
+  socket.emit('completar_reto', { challengeId: id }, (resp) => {
+    if (resp.error) return mostrarToast(resp.error, 'warning');
+    socket.emit('obtener_estado', {}, (d) => { estadoJuego = d; renderizarTodo(); });
+  });
+}
+
+function renderizarTienda(s) {
+  const items = estadoJuego.shop || [];
+  const yo = miJugador(s);
+  const monedas = yo?.coins || 0;
+  document.getElementById('mis-monedas-tienda').textContent = monedas;
+  document.getElementById('tienda-lista').innerHTML = items.map(item => `
+    <div class="item-card">
+      <span class="item-type type-${item.type}">${TYPE[item.type]}</span>
+      <h4>${item.name}</h4><p>${item.desc}</p>
+      <p class="item-cost">💰 ${item.cost} monedas</p>
+      <button class="btn btn-purpura btn-sm btn-block" onclick="comprarItem('${item.id}')" ${monedas < item.cost ? 'disabled' : ''}>🛒 Comprar</button>
+    </div>`).join('');
+}
+
+function comprarItem(id) {
+  socket.emit('comprar_item', { itemId: id }, (resp) => {
+    if (resp.error) return mostrarToast(resp.error, 'warning');
+    socket.emit('obtener_estado', {}, (d) => { estadoJuego = d; renderizarTodo(); });
+  });
+}
+
+function renderizarInventario(s) {
+  const yo = miJugador(s);
+  const inv = yo?.inventory || [];
+  if (!inv.length) {
+    document.getElementById('inventario-lista').innerHTML = '<p class="empty-state">🎒 Vacío</p>';
+    return;
+  }
+  document.getElementById('inventario-lista').innerHTML = inv.map(i => `
+    <div class="inventario-item">
+      <span>${i.name}</span>
+      <button class="btn btn-azul btn-sm" onclick="usarObjeto('${i.itemId}')">🎯 Usar</button>
+    </div>`).join('');
+}
+
+function usarObjeto(id) {
+  const names = {escudo:'🛡️ Escudo',multiplicador:'⚡ Multiplicador',robo:'🪙 Robo',bendicion:'💝 Bendición',escudo_robo:'🔰 Anti-Robo',dado_doble:'🎲 Dado Doble'};
+  if (confirm(`¿Usar ${names[id]||id}?`)) {
+    socket.emit('usar_objeto', { itemId: id }, (resp) => {
+      if (resp.error) return mostrarToast(resp.error, 'warning');
+      socket.emit('obtener_estado', {}, (d) => { estadoJuego = d; renderizarTodo(); });
+    });
+  }
+}
+
+function renderizarLog(s) {
+  const log = estadoJuego.gameLog || [];
+  const c = document.getElementById('log-lista');
+  if (!log.length) { c.innerHTML = '<p class="empty-state">📜 Sin actividad aún</p>'; return; }
+  c.innerHTML = log.slice(0,50).map(e => {
+    const t = new Date(e.time).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
+    return `<div class="log-entry">
+      <span class="time">${t}</span> 
+      ${e.avatar||''} <span class="player-name">${e.player}</span> ${e.action}
+      ${e.reward ? ` <span class="reward-text">${e.reward}</span>` : ''}
+    </div>`;
+  }).join('');
+}
+
+function renderizarRanking() {
+  const rankings = estadoJuego.rankings || [];
+  const tbody = document.getElementById('ranking-body');
+  const empty = document.getElementById('ranking-empty');
+  
+  if (!rankings.length) {
+    tbody.innerHTML = '';
+    empty.style.display = 'block';
+  } else {
+    empty.style.display = 'none';
+    tbody.innerHTML = rankings.map((r, i) => {
+      const isRafa = r.ganador === (r.rafa?.name || 'Rafa');
+      return `<tr class="${i===0?'winner-row':''}">
+        <td>${r.month || '?'}</td>
+        <td>${r.ganadorAvatar||'👑'} <strong>${r.ganador||'?'}</strong> ${i===0?'🔴':''}</td>
+        <td class="rafa-color">${r.rafa?.exp||0} EXP (Nv.${r.rafa?.level||1})</td>
+        <td class="laura-color">${r.laura ? r.laura.exp + ' EXP (Nv.' + r.laura.level + ')' : '-'}</td>
+      </tr>`;
+    }).join('');
+  }
+  
+  // Stats globales
+  if (window.allTimeStats) {
+    const st = window.allTimeStats;
+    document.getElementById('ranking-stats').innerHTML = `
+      <div class="stats-grid">
+        <div class="stat-card rafa-card">
+          <div style="font-size:2rem">🦁</div>
+          <div><strong>Rafa</strong></div>
+          <div class="big-num" style="color:#f59e0b">${st.rafa.wins}</div>
+          <div style="font-size:0.8rem;color:#aaa">victorias</div>
+          <div style="font-size:0.8rem;color:#aaa">${st.rafa.totalExp} EXP total · ${st.rafa.months} meses</div>
+        </div>
+        <div class="stat-card laura-card">
+          <div style="font-size:2rem">🦊</div>
+          <div><strong>Laura</strong></div>
+          <div class="big-num" style="color:#ec4899">${st.laura.wins}</div>
+          <div style="font-size:0.8rem;color:#aaa">victorias</div>
+          <div style="font-size:0.8rem;color:#aaa">${st.laura.totalExp} EXP total · ${st.laura.months} meses</div>
+        </div>
+      </div>`;
+  }
+}
+
+// ===== PESTAÑAS =====
+function cambiarTab(tab) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  const idx = ['retos','tienda','inventario','ranking','log'].indexOf(tab);
+  if (idx >= 0) document.querySelectorAll('.tab')[idx].classList.add('active');
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  if (tab === 'ranking') {
+    fetch('/api/rafaylaura').then(r => r.json()).then(s => { window.allTimeStats = s; renderizarRanking(); });
+  }
+}
+
+// ===== TOASTS & MODAL =====
+function mostrarToast(msg, tipo) {
+  const t = document.createElement('div');
+  t.className = `toast ${tipo}`;
+  t.textContent = msg;
+  document.getElementById('toast-container').appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+function mostrarModalGanador(ganador, avatar) {
+  document.getElementById('modal-ganador-texto').textContent = 
+    ganador === 'Empate' ? '🤝 ¡Empate!' : `${avatar||'👑'} ¡${ganador} gana el Poder Supremo!`;
+  document.getElementById('modal-ganador-detalle').textContent = 
+    ganador === 'Empate' ? 'Negociad el Poder Supremo' : `${ganador} elige: plan, cita, capricho o decisión acordada`;
+  document.getElementById('modal-ganador').classList.add('show');
+}
+
+function cerrarModal() {
+  document.getElementById('modal-ganador').classList.remove('show');
+}
+
+// ===== REINICIAR MES =====
+function reiniciarMes() {
+  if (confirm('🏆 ¿Terminar el mes y coronar al ganador? Se guardará en el ranking.')) {
+    socket.emit('reiniciar_mes', {}, (resp) => {
+      if (resp.error) return mostrarToast(resp.error, 'warning');
+    });
+  }
+}
+
+// Añadir botón de reinicio al header después de cargar
+setTimeout(() => {
+  const header = document.querySelector('#pantalla-juego .header');
+  if (header && !document.getElementById('btn-reiniciar')) {
+    const btn = document.createElement('button');
+    btn.id = 'btn-reiniciar';
+    btn.className = 'btn btn-verde btn-sm';
+    btn.textContent = '🏆 Fin de Mes';
+    btn.onclick = reiniciarMes;
+    btn.style.marginLeft = '8px';
+    header.appendChild(btn);
+  }
+}, 2000);
+
+// Enter key
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('pantalla-inicio').style.display !== 'none') {
+    if (document.activeElement?.id === 'nombre-crear') crearSesion();
+    else if (document.activeElement?.id === 'nombre-unir' || document.activeElement?.id === 'codigo-unir') unirSesion();
+  }
+});
+</script>
+</body>
+</html>
